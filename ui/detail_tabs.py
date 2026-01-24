@@ -223,6 +223,22 @@ class SummaryTab(QWidget):
             if crash.driver_version:
                 explanation += f"Driver Version: {crash.driver_version}<br>"
 
+        # Display advanced minidump analysis findings
+        if crash.advanced_findings:
+            explanation += "<br><br>"
+            explanation += "<b>Advanced Crash Analysis:</b><br>"
+            explanation += "<i style='color: #888;'>From minidump analysis</i><br>"
+            for finding in crash.advanced_findings:
+                # Color code findings by severity
+                if any(word in finding for word in ['CORRUPTION', 'BAD_RAM', 'KERNEL_SPACE']):
+                    explanation += f"<span style='color: #ff6b6b;'>⚠ {finding}</span><br>"
+                elif 'GPU_DRIVER' in finding:
+                    explanation += f"<span style='color: #ffa500;'>⚠ {finding}</span><br>"
+                elif 'CONFIRMED' in finding:
+                    explanation += f"<span style='color: #4ecdc4;'>✓ {finding}</span><br>"
+                else:
+                    explanation += f"• {finding}<br>"
+
         return explanation
 
 
@@ -256,7 +272,22 @@ class TechnicalTab(QWidget):
         html.append(f"<div class='even'><b>Crash Type:</b> {crash.crash_type}</div>")
         html.append(f"<div class='odd'><b>Error Message:</b> {crash.error_message}</div>")
         html.append(f"<div class='even'><b>Out of Memory:</b> {'Yes' if crash.is_oom else 'No'}</div>")
+
+        # Show advanced exception info if available
+        if crash.exception_code:
+            html.append(f"<div class='odd'><b>Exception Code:</b> 0x{crash.exception_code:08X} ({crash.exception_name})</div>")
         html.append("<br>")
+
+        # Show CPU registers if available
+        if crash.cpu_registers:
+            html.append("<div class='odd'><b>=== CPU Registers (at crash) ===</b></div>")
+            reg_count = 0
+            for reg_name in ['RIP', 'RSP', 'RBP', 'RAX', 'RBX', 'RCX', 'RDX', 'RSI', 'RDI', 'R8', 'R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15']:
+                if reg_name in crash.cpu_registers:
+                    css_class = 'even' if reg_count % 2 == 0 else 'odd'
+                    html.append(f"<div class='{css_class}'>{reg_name}: 0x{crash.cpu_registers[reg_name]:016X}</div>")
+                    reg_count += 1
+            html.append("<br>")
 
         html.append("<div class='odd'><b>=== Main Thread Call Stack ===</b></div>")
         if crash.main_call_stack:
@@ -511,6 +542,42 @@ class EpicReportTab(QWidget):
         if crash.game_state:
             lines.append(f"Game State: {crash.game_state}")
         lines.append("")
+
+        # Advanced Crash Analysis (if available)
+        if crash.advanced_findings or crash.cpu_registers or crash.exception_code:
+            lines.append("=" * 60)
+            lines.append("ADVANCED CRASH ANALYSIS")
+            lines.append("=" * 60)
+            lines.append("")
+
+            if crash.exception_code:
+                lines.append(f"Exception Code: 0x{crash.exception_code:08X} ({crash.exception_name})")
+                if crash.exception_params:
+                    lines.append(f"Exception Parameters: {[hex(p) for p in crash.exception_params]}")
+                lines.append("")
+
+            if crash.cpu_registers:
+                lines.append("CPU Registers (at time of crash):")
+                for reg_name in ['RIP', 'RSP', 'RBP', 'RAX', 'RBX', 'RCX', 'RDX', 'RSI', 'RDI']:
+                    if reg_name in crash.cpu_registers:
+                        lines.append(f"  {reg_name}: 0x{crash.cpu_registers[reg_name]:016X}")
+                lines.append("")
+
+            if crash.advanced_findings:
+                lines.append("Automated Diagnosis:")
+                for finding in crash.advanced_findings:
+                    lines.append(f"  - {finding}")
+                lines.append("")
+
+            if crash.address_space_type:
+                lines.append(f"Address Space: {crash.address_space_type}")
+            if crash.crash_in_gpu_driver:
+                lines.append("GPU Driver Involvement: YES")
+            if crash.stack_corruption_detected:
+                lines.append("Stack Corruption: DETECTED")
+            if crash.bad_ram_suspected:
+                lines.append("Bad RAM: SUSPECTED")
+            lines.append("")
 
         # Main Thread Call Stack
         lines.append("=" * 60)

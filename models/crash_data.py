@@ -71,6 +71,18 @@ class CrashData:
     # Raw data
     raw_xml: str = ""
 
+    # Advanced minidump analysis
+    exception_code: int = 0  # NTSTATUS code
+    exception_name: str = ""  # Friendly exception name
+    exception_params: List[int] = field(default_factory=list)  # Exception parameters
+    cpu_registers: Dict[str, int] = field(default_factory=dict)  # RIP, RSP, RBP, RAX, etc.
+    loaded_modules: List[Dict[str, Any]] = field(default_factory=list)  # Loaded DLLs
+    crash_in_gpu_driver: bool = False  # Crash occurred in GPU driver
+    stack_corruption_detected: bool = False  # Stack corruption detected
+    bad_ram_suspected: bool = False  # Bad RAM patterns detected
+    address_space_type: str = ""  # USER_SPACE, KERNEL_SPACE, NON_CANONICAL
+    advanced_findings: List[str] = field(default_factory=list)  # All advanced heuristic findings
+
     def get_friendly_crash_type(self) -> str:
         """Get a user-friendly description of the crash type."""
         crash_types = {

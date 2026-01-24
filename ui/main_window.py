@@ -11,6 +11,7 @@ from models.crash_data import CrashData
 from utils.scanner import CrashScanner
 from parsers.crash_context import CrashContextParser
 from parsers.game_log import GameLogParser
+from parsers.minidump_parser import MinidumpParser
 from ui.crash_list import CrashListWidget
 from ui.detail_tabs import DetailTabsWidget
 
@@ -145,6 +146,10 @@ class MainWindow(QMainWindow):
             # Parse log if available
             if 'log' in files:
                 GameLogParser.parse(files['log'], crash_data)
+
+            # Parse minidump for advanced analysis
+            if 'minidump' in files:
+                MinidumpParser.parse(files['minidump'], crash_data)
 
             return crash_data
 
