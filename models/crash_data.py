@@ -1,7 +1,7 @@
 """Data models for Fortnite crash information."""
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from pathlib import Path
 
 

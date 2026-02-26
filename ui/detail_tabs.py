@@ -3,8 +3,10 @@ from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout, QTextEdit, QLabel, QScrollArea, QGroupBox, QFormLayout,
     QPushButton, QHBoxLayout, QApplication
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QDesktopServices
 from models.crash_data import CrashData
+from utils.nvidia_driver_resolver import NvidiaDriverResolver
 
 
 class DetailTabsWidget(QTabWidget):
@@ -20,12 +22,14 @@ class DetailTabsWidget(QTabWidget):
         self.system_tab = SystemTab()
         self.log_tab = LogTab()
         self.epic_report_tab = EpicReportTab()
+        self.repair_tab = RepairTab()
 
         self.addTab(self.summary_tab, "Summary")
         self.addTab(self.technical_tab, "Technical Details")
         self.addTab(self.system_tab, "System Info")
         self.addTab(self.log_tab, "Game Log")
         self.addTab(self.epic_report_tab, "Epic Games Report")
+        self.addTab(self.repair_tab, "Repair")
 
     def load_crash(self, crash: CrashData) -> None:
         """Load crash data into tabs.
@@ -39,6 +43,7 @@ class DetailTabsWidget(QTabWidget):
         self.system_tab.load_crash(crash)
         self.log_tab.load_crash(crash)
         self.epic_report_tab.load_crash(crash)
+        self.repair_tab.load_crash(crash)
 
 
 class SummaryTab(QWidget):
@@ -659,3 +664,217 @@ class EpicReportTab(QWidget):
             # Reset button text after 2 seconds
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(2000, lambda: self.copy_button.setText("Copy Report to Clipboard"))
+
+
+class RepairTab(QWidget):
+    """Repair tab with automated repair suggestions and tools."""
+
+    def __init__(self):
+        super().__init__()
+        self.current_crash = None
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        # Title
+        title = QLabel("<h2>Automated Repair Suggestions</h2>")
+        layout.addWidget(title)
+
+        # NVIDIA Driver Section
+        self.nvidia_group = QGroupBox("Graphics Driver Updates")
+        nvidia_layout = QVBoxLayout()
+        self.nvidia_group.setLayout(nvidia_layout)
+
+        nvidia_desc = QLabel("Outdated GPU drivers are a common cause of game crashes. Update to the latest version:")
+        nvidia_desc.setWordWrap(True)
+        nvidia_layout.addWidget(nvidia_desc)
+
+        self.nvidia_button = QPushButton("Get Latest NVIDIA Driver")
+        self.nvidia_button.clicked.connect(self._open_nvidia_driver_page)
+        self.nvidia_button.setMinimumHeight(40)
+        nvidia_layout.addWidget(self.nvidia_button)
+
+        self.nvidia_status_label = QLabel("")
+        self.nvidia_status_label.setWordWrap(True)
+        nvidia_layout.addWidget(self.nvidia_status_label)
+
+        layout.addWidget(self.nvidia_group)
+
+        # AMD Driver Section
+        self.amd_group = QGroupBox("AMD Graphics Driver Updates")
+        amd_layout = QVBoxLayout()
+        self.amd_group.setLayout(amd_layout)
+
+        amd_desc = QLabel("AMD provides an auto-detection tool to find and install the latest drivers for your GPU:")
+        amd_desc.setWordWrap(True)
+        amd_layout.addWidget(amd_desc)
+
+        self.amd_button = QPushButton("Get Latest AMD Driver (Auto-Detect)")
+        self.amd_button.clicked.connect(self._open_amd_driver_page)
+        self.amd_button.setMinimumHeight(40)
+        amd_layout.addWidget(self.amd_button)
+
+        self.amd_status_label = QLabel("")
+        self.amd_status_label.setWordWrap(True)
+        amd_layout.addWidget(self.amd_status_label)
+
+        layout.addWidget(self.amd_group)
+
+        # Intel Driver Section
+        self.intel_group = QGroupBox("Intel Graphics Driver Updates")
+        intel_layout = QVBoxLayout()
+        self.intel_group.setLayout(intel_layout)
+
+        intel_desc = QLabel("Intel provides an auto-detection tool to find and install the latest drivers for your Integrated Graphics:")
+        intel_desc.setWordWrap(True)
+        intel_layout.addWidget(intel_desc)
+
+        self.intel_button = QPushButton("Get Latest Intel Driver (Auto-Detect)")
+        self.intel_button.clicked.connect(self._open_intel_driver_page)
+        self.intel_button.setMinimumHeight(40)
+        intel_layout.addWidget(self.intel_button)
+
+        self.intel_status_label = QLabel("")
+        self.intel_status_label.setWordWrap(True)
+        intel_layout.addWidget(self.intel_status_label)
+
+        layout.addWidget(self.intel_group)
+
+        # DDU (Display Driver Uninstaller) Section - Always visible
+        self.ddu_group = QGroupBox("Clean Driver Installation (Advanced)")
+        ddu_layout = QVBoxLayout()
+        self.ddu_group.setLayout(ddu_layout)
+
+        ddu_desc = QLabel(
+            "If you're experiencing persistent driver issues, Display Driver Uninstaller (DDU) can completely "
+            "remove old drivers before installing new ones. This often resolves issues caused by corrupted or "
+            "conflicting driver files."
+        )
+        ddu_desc.setWordWrap(True)
+        ddu_layout.addWidget(ddu_desc)
+
+        self.ddu_button = QPushButton("Get Display Driver Uninstaller (DDU)")
+        self.ddu_button.clicked.connect(self._open_ddu_page)
+        self.ddu_button.setMinimumHeight(40)
+        ddu_layout.addWidget(self.ddu_button)
+
+        ddu_warning = QLabel(
+            "⚠️ Note: DDU should be run in Safe Mode for best results. "
+            "Follow the instructions on the DDU website carefully."
+        )
+        ddu_warning.setWordWrap(True)
+        ddu_warning.setStyleSheet("color: #FFA500;")  # Orange color for warning
+        ddu_layout.addWidget(ddu_warning)
+
+        layout.addWidget(self.ddu_group)
+
+        # Placeholder for future repair features
+        layout.addStretch()
+
+    def load_crash(self, crash: CrashData) -> None:
+        """Load crash data and update repair options.
+
+        Args:
+            crash: CrashData object.
+        """
+        self.current_crash = crash
+
+        # Get GPU info
+        gpu_brand = crash.system_info.gpu_brand
+        is_nvidia = self._is_nvidia_gpu(gpu_brand)
+        is_amd = self._is_amd_gpu(gpu_brand)
+        is_intel = self._is_intel_gpu(gpu_brand)
+
+        # NVIDIA GPU handling
+        if is_nvidia:
+            self.nvidia_group.setVisible(True)
+
+            # Try to resolve driver info
+            driver_info = NvidiaDriverResolver.get_driver_info(gpu_brand)
+            if driver_info and driver_info.get('url'):
+                self.nvidia_button.setEnabled(True)
+                self.nvidia_button.setProperty("driver_url", driver_info['url'])
+
+                # Show driver version if available
+                version = driver_info.get('version', 'Unknown')
+                self.nvidia_status_label.setText(
+                    f"Detected GPU: {gpu_brand}\n"
+                    f"Latest driver: v{version}"
+                )
+            else:
+                self.nvidia_button.setEnabled(True)
+                self.nvidia_button.setProperty("driver_url", "https://www.nvidia.com/Download/index.aspx")
+                self.nvidia_status_label.setText(
+                    f"Detected GPU: {gpu_brand}\n"
+                    "Unable to auto-detect specific model. Button will open NVIDIA driver search page."
+                )
+        else:
+            self.nvidia_group.setVisible(False)
+
+        # AMD GPU handling
+        if is_amd:
+            self.amd_group.setVisible(True)
+            self.amd_status_label.setText(f"Detected GPU: {gpu_brand}")
+        else:
+            self.amd_group.setVisible(False)
+
+        # Intel GPU handling
+        if is_intel:
+            self.intel_group.setVisible(True)
+            self.intel_status_label.setText(f"Detected GPU: {gpu_brand}")
+        else:
+            self.intel_group.setVisible(False)
+
+    def _is_nvidia_gpu(self, gpu_brand: str) -> bool:
+        """Check if GPU is NVIDIA.
+
+        Args:
+            gpu_brand: GPU brand string.
+
+        Returns:
+            True if NVIDIA GPU.
+        """
+        gpu_lower = gpu_brand.lower()
+        return any(keyword in gpu_lower for keyword in ['nvidia', 'geforce', 'rtx', 'gtx', 'quadro'])
+
+    def _is_amd_gpu(self, gpu_brand: str) -> bool:
+        """Check if GPU is AMD.
+
+        Args:
+            gpu_brand: GPU brand string.
+
+        Returns:
+            True if AMD GPU.
+        """
+        gpu_lower = gpu_brand.lower()
+        return any(keyword in gpu_lower for keyword in ['amd', 'radeon', 'rx '])
+
+    def _is_intel_gpu(self, gpu_brand: str) -> bool:
+        """Check if GPU is Intel.
+
+        Args:
+            gpu_brand: GPU brand string.
+
+        Returns:
+            True if Intel GPU.
+        """
+        gpu_lower = gpu_brand.lower()
+        return any(keyword in gpu_lower for keyword in ['intel', 'arc', 'uhd', 'iris', 'xe'])
+
+    def _open_nvidia_driver_page(self) -> None:
+        """Open NVIDIA driver download page in browser."""
+        driver_url = self.nvidia_button.property("driver_url")
+        if driver_url:
+            QDesktopServices.openUrl(QUrl(driver_url))
+
+    def _open_amd_driver_page(self) -> None:
+        """Open AMD driver download page in browser."""
+        QDesktopServices.openUrl(QUrl("https://www.amd.com/en/support/download/drivers.html"))
+
+    def _open_intel_driver_page(self) -> None:
+        """Open Intel driver download page in browser."""
+        QDesktopServices.openUrl(QUrl("https://www.intel.com/content/www/us/en/download-center/home.html"))
+
+    def _open_ddu_page(self) -> None:
+        """Open Display Driver Uninstaller (DDU) download page in browser."""
+        QDesktopServices.openUrl(QUrl("https://www.wagnardsoft.com/display-driver-uninstaller-ddu"))
