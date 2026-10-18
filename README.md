@@ -2,6 +2,8 @@
 
 A desktop application that helps inspect and understand Fortnite crash reports. It provides a simple UI to load CrashContext, minidump, and FortniteGame.log files, then summarizes technical details and offers actionable recommendations.
 
+![The Summary tab diagnosing a GPU driver crash (sample crash reports)](docs/screenshot.png)
+
 ## Features
 - Scan standard Fortnite crash folders and list available crash reports
 - Parse CrashContext runtime XML, FortniteGame.log, and Windows minidump files
@@ -29,7 +31,8 @@ python main.py
 The app will scan your default Fortnite crash directory and display available reports. Select a report to view summaries, logs, and technical details.
 
 ## Privacy and Safety
-- The tool reads crash data from your local disk. It does not send data anywhere.
+- Crash files are read from your local disk and never uploaded.
+- For NVIDIA GPUs, the app looks up the latest driver on NVIDIA's public driver site, which sends NVIDIA your GPU model and nothing else.
 - Verify paths before sharing logs or reports publicly.
 - When reporting issues, remove any personal identifiers from logs.
 
