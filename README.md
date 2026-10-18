@@ -10,9 +10,6 @@ A desktop application that helps inspect and understand Fortnite crash reports. 
 - Detect common GPU driver related issues and provide vendor-specific guidance
 - Generate a formatted summary that you can paste into Epic Games crash reports
 
-## Screenshots
-Screenshots are not included in the repository. You can run the app locally to preview the UI.
-
 ## Requirements
 - Windows 10 or later
 - Python 3.10+
@@ -41,7 +38,9 @@ The app will scan your default Fortnite crash directory and display available re
 - The UI is built with PyQt6 and uses standard widgets for readability.
 
 ## Contributing
-Pull requests are welcome. Please keep code comments clear and contextual. Avoid speculation and avoid meta-commentary.
+Pull requests are welcome.
+
+This project is not affiliated with or endorsed by Epic Games. Fortnite is a trademark of Epic Games, Inc.
 
 ## License
 This project is licensed under the MIT License. See `LICENSE` for details.
